@@ -681,6 +681,212 @@
 #         ingest_book()
 # ----------------------------------------------------------------------------------------------------------
 
+# import requests
+# import xml.etree.ElementTree as ET
+# import trafilatura
+# from qdrant_client import QdrantClient
+# from qdrant_client.models import VectorParams, Distance, PointStruct
+# import cohere
+
+# from fastapi import FastAPI
+# from fastapi.middleware.cors import CORSMiddleware
+# from pydantic import BaseModel
+# from agents import Agent, Runner, function_tool
+# from agents.models.openai_provider import OpenAIChatCompletionsModel, AsyncOpenAI
+# import sys
+# import os
+# from dotenv import load_dotenv
+
+# # -------------------------------------------------
+# # ENV
+# # -------------------------------------------------
+# load_dotenv()
+
+# SITEMAP_URL = "https://physical-ai-book-six.vercel.app/sitemap.xml"
+# COLLECTION_NAME = "humanoid_ai_book"
+# EMBED_MODEL = "embed-english-v3.0"
+
+# # -------------------------------------------------
+# # LAZY CLIENTS (Railway-safe)
+# # -------------------------------------------------
+# _cohere_client = None
+# _qdrant_client = None
+
+# def get_cohere():
+#     global _cohere_client
+#     if _cohere_client is None:
+#         key = os.getenv("COHERE_API_KEY")
+#         if not key:
+#             raise RuntimeError("COHERE_API_KEY not set")
+#         _cohere_client = cohere.Client(key)
+#     return _cohere_client
+
+# def get_qdrant():
+#     global _qdrant_client
+#     if _qdrant_client is None:
+#         _qdrant_client = QdrantClient(
+#             url=os.getenv("QDRANT_URL"),
+#             api_key=os.getenv("QDRANT_API_KEY"),
+#         )
+#     return _qdrant_client
+
+# # -------------------------------------------------
+# # INGESTION
+# # -------------------------------------------------
+# def get_all_urls(sitemap_url):
+#     xml = requests.get(sitemap_url).text
+#     root = ET.fromstring(xml)
+#     urls = []
+#     for child in root:
+#         loc = child.find("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")
+#         if loc is not None:
+#             urls.append(loc.text)
+#     return urls
+
+# def extract_text_from_url(url):
+#     html = requests.get(url).text
+#     return trafilatura.extract(html)
+
+# def chunk_text(text, max_chars=1200):
+#     chunks = []
+#     while len(text) > max_chars:
+#         split = text[:max_chars].rfind(". ")
+#         split = split if split != -1 else max_chars
+#         chunks.append(text[:split])
+#         text = text[split:]
+#     chunks.append(text)
+#     return chunks
+
+# def embed(text):
+#     client = get_cohere()
+#     res = client.embed(
+#         model=EMBED_MODEL,
+#         input_type="search_query",
+#         texts=[text],
+#     )
+#     return res.embeddings[0]
+
+# def create_collection():
+#     get_qdrant().recreate_collection(
+#         collection_name=COLLECTION_NAME,
+#         vectors_config=VectorParams(size=1024, distance=Distance.COSINE),
+#     )
+
+# def save_chunk_to_qdrant(chunk, chunk_id, url):
+#     get_qdrant().upsert(
+#         collection_name=COLLECTION_NAME,
+#         points=[
+#             PointStruct(
+#                 id=chunk_id,
+#                 vector=embed(chunk),
+#                 payload={"url": url, "text": chunk},
+#             )
+#         ],
+#     )
+
+# def ingest_book():
+#     create_collection()
+#     gid = 1
+#     for url in get_all_urls(SITEMAP_URL):
+#         text = extract_text_from_url(url)
+#         if not text:
+#             continue
+#         for ch in chunk_text(text):
+#             save_chunk_to_qdrant(ch, gid, url)
+#             gid += 1
+#     print("✔ Ingestion completed")
+
+# # -------------------------------------------------
+# # RAG TOOL
+# # -------------------------------------------------
+# @function_tool
+# def retrieve(query: str):
+#     vec = embed(query)
+#     res = get_qdrant().query_points(
+#         collection_name=COLLECTION_NAME,
+#         query=vec,
+#         limit=5,
+#     )
+#     return [p.payload["text"] for p in res.points]
+
+# # -------------------------------------------------
+# # AGENT (UNCHANGED)
+# # -------------------------------------------------
+# openai_client = AsyncOpenAI(
+#     api_key=os.getenv("GEMINI_API_KEY"),
+#     base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+# )
+
+# gemini_model = OpenAIChatCompletionsModel(
+#     model="gemini-flash-lite-latest",
+#     openai_client=openai_client,
+# )
+
+# agent = Agent(
+#     name="Assistant",
+#     instructions="""
+# You are an AI tutor for the Physical AI & Humanoid Robotics textbook.
+
+# Steps:
+# 1. Call `retrieve` with the user question.
+# Be concise.
+# """,
+#     model=gemini_model,
+#     tools=[retrieve],
+# )
+
+# # -------------------------------------------------
+# # FASTAPI
+# # -------------------------------------------------
+# app = FastAPI()
+
+# @app.get("/")
+# def health():
+#     return {"status": "ok"}
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
+
+# class Query(BaseModel):
+#     question: str
+
+# @app.post("/chat")
+# def chat(q: Query):
+#     result = Runner.run_sync(agent, input=q.question)
+#     return {"answer": result.final_output}
+
+# # -------------------------------------------------
+# # ENTRY POINT
+# # -------------------------------------------------
+
+# if __name__ == "__main__":
+#     import os
+#     import uvicorn
+
+#     # If called with ingest argument, run ingestion
+#     import sys
+#     if len(sys.argv) > 1 and sys.argv[1] == "ingest":
+#         ingest_book()
+#     else:
+#         # Railway requires listening on the PORT environment variable
+#         port = int(os.environ.get("PORT", 8080))  # Railway sets $PORT
+#         uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
+
+
+
+
+
+
+
+
+
+
+
 import requests
 import xml.etree.ElementTree as ET
 import trafilatura
@@ -693,6 +899,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from agents import Agent, Runner, function_tool
 from agents.models.openai_provider import OpenAIChatCompletionsModel, AsyncOpenAI
+from openai import RateLimitError
 import sys
 import os
 from dotenv import load_dotenv
@@ -711,6 +918,7 @@ EMBED_MODEL = "embed-english-v3.0"
 # -------------------------------------------------
 _cohere_client = None
 _qdrant_client = None
+_agent = None
 
 def get_cohere():
     global _cohere_client
@@ -729,6 +937,31 @@ def get_qdrant():
             api_key=os.getenv("QDRANT_API_KEY"),
         )
     return _qdrant_client
+
+def get_agent():
+    global _agent
+    if _agent is None:
+        openai_client = AsyncOpenAI(
+            api_key=os.getenv("GEMINI_API_KEY"),
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
+        gemini_model = OpenAIChatCompletionsModel(
+            model="gemini-flash-lite-latest",
+            openai_client=openai_client,
+        )
+        _agent = Agent(
+            name="Assistant",
+            instructions="""
+You are an AI tutor for the Physical AI & Humanoid Robotics textbook.
+
+Steps:
+1. Call `retrieve` with the user question.
+Be concise.
+""",
+            model=gemini_model,
+            tools=[retrieve],
+        )
+    return _agent
 
 # -------------------------------------------------
 # INGESTION
@@ -810,32 +1043,6 @@ def retrieve(query: str):
     return [p.payload["text"] for p in res.points]
 
 # -------------------------------------------------
-# AGENT (UNCHANGED)
-# -------------------------------------------------
-openai_client = AsyncOpenAI(
-    api_key=os.getenv("GEMINI_API_KEY"),
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-)
-
-gemini_model = OpenAIChatCompletionsModel(
-    model="gemini-flash-lite-latest",
-    openai_client=openai_client,
-)
-
-agent = Agent(
-    name="Assistant",
-    instructions="""
-You are an AI tutor for the Physical AI & Humanoid Robotics textbook.
-
-Steps:
-1. Call `retrieve` with the user question.
-Be concise.
-""",
-    model=gemini_model,
-    tools=[retrieve],
-)
-
-# -------------------------------------------------
 # FASTAPI
 # -------------------------------------------------
 app = FastAPI()
@@ -857,35 +1064,22 @@ class Query(BaseModel):
 
 @app.post("/chat")
 def chat(q: Query):
-    result = Runner.run_sync(agent, input=q.question)
-    return {"answer": result.final_output}
+    agent = get_agent()
+    try:
+        result = Runner.run_sync(agent, input=q.question)
+        return {"answer": result.final_output}
+    except RateLimitError:
+        return {"answer": "Gemini API quota exceeded. Please try again later."}
+    except Exception as e:
+        return {"answer": f"Error: {str(e)}"}
 
 # -------------------------------------------------
 # ENTRY POINT
 # -------------------------------------------------
-# if __name__ == "__main__":
-#     if len(sys.argv) > 1 and sys.argv[1] == "ingest":
-#         ingest_book()
-# if __name__ == "__main__":
-#     import uvicorn
-#     import os
-
-#     if len(sys.argv) > 1 and sys.argv[1] == "ingest":
-#         ingest_book()
-#     else:
-#         # Use Railway's port or default to 8000 locally
-#         port = int(os.environ.get("PORT", 8000))
-#         uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
 if __name__ == "__main__":
-    import os
     import uvicorn
-
-    # If called with ingest argument, run ingestion
-    import sys
     if len(sys.argv) > 1 and sys.argv[1] == "ingest":
         ingest_book()
     else:
-        # Railway requires listening on the PORT environment variable
         port = int(os.environ.get("PORT", 8080))  # Railway sets $PORT
         uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
-
