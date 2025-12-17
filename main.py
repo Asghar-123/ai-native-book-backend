@@ -866,13 +866,26 @@ def chat(q: Query):
 # if __name__ == "__main__":
 #     if len(sys.argv) > 1 and sys.argv[1] == "ingest":
 #         ingest_book()
-if __name__ == "__main__":
-    import uvicorn
-    import os
+# if __name__ == "__main__":
+#     import uvicorn
+#     import os
 
+#     if len(sys.argv) > 1 and sys.argv[1] == "ingest":
+#         ingest_book()
+#     else:
+#         # Use Railway's port or default to 8000 locally
+#         port = int(os.environ.get("PORT", 8000))
+#         uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
+if __name__ == "__main__":
+    import os
+    import uvicorn
+
+    # If called with ingest argument, run ingestion
+    import sys
     if len(sys.argv) > 1 and sys.argv[1] == "ingest":
         ingest_book()
     else:
-        # Use Railway's port or default to 8000 locally
-        port = int(os.environ.get("PORT", 8000))
+        # Railway requires listening on the PORT environment variable
+        port = int(os.environ.get("PORT", 8080))  # Railway sets $PORT
         uvicorn.run("main:app", host="0.0.0.0", port=port, log_level="info")
+
