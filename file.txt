@@ -1,0 +1,5 @@
+qdrant = QdrantClient(
+    url="https://4273c908-4e6d-4bfd-9332-1d8f9ec6babe.us-east4-0.gcp.cloud.qdrant.io:6333", 
+    api_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.fcAq74jPGM-g0D4FPWCxcg9vYFBd4Nxj0zM1WVbPVkI",
+)
+cohere_client = cohere.Client("IFKONjwLmVwmmUDhH18JHRA5ux50sMkqMYs2ZLwe")
